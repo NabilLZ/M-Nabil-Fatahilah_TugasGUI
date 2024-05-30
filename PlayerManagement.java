@@ -1,0 +1,261 @@
+package GUIQUEST;
+
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.sql.*;
+
+public class PlayerManagement extends JFrame {
+    private JTextField txtId;
+    private JTextField txtName;
+    private JComboBox<String> comboPosition;
+    private JSpinner spinnerAge;
+    private JTable table;
+    private DefaultTableModel model;
+    private Connection connection;
+    private JRadioButton radioJunior;
+    private JRadioButton radioMenengah;
+    private JRadioButton radioSenior;
+    private ButtonGroup groupLiga;
+
+    public PlayerManagement() {
+        setTitle("Player Management");
+        setSize(600, 450);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+        setLayout(new BorderLayout());
+
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        formPanel.add(new JLabel("No Punggung :"), gbc);
+        gbc.gridx = 1;
+        txtId = new JTextField(15);
+        formPanel.add(txtId, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        formPanel.add(new JLabel("Nama :"), gbc);
+        gbc.gridx = 1;
+        txtName = new JTextField(15);
+        formPanel.add(txtName, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        formPanel.add(new JLabel("Posisi :"), gbc);
+        gbc.gridx = 1;
+        comboPosition = new JComboBox<>(new String[]{
+            "Penjaga Gawang",
+            "Bek Tengah",
+            "Bek Sayap",
+            "Bek Kanan",
+            "Bek Kiri",
+            "Sweeper",
+            "Gelandang Bertahan",
+            "Gelandang Tengah",
+            "Gelandang Serang",
+            "Gelandang Sayap",
+            "Penyerang Tengah",
+            "Penyerang Kedua",
+            "Penyerang Sayap"
+        });
+        formPanel.add(comboPosition, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        formPanel.add(new JLabel("Umur :"), gbc);
+        gbc.gridx = 1;
+        spinnerAge = new JSpinner(new SpinnerNumberModel(18, 1, 100, 1));
+        formPanel.add(spinnerAge, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 4;
+        formPanel.add(new JLabel("Liga :"), gbc);
+        gbc.gridx = 1;
+        JPanel ligaPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        radioJunior = new JRadioButton("Junior");
+        radioMenengah = new JRadioButton("Menengah");
+        radioSenior = new JRadioButton("Senior");
+        groupLiga = new ButtonGroup();
+        groupLiga.add(radioJunior);
+        groupLiga.add(radioMenengah);
+        groupLiga.add(radioSenior);
+        ligaPanel.add(radioJunior);
+        ligaPanel.add(radioMenengah);
+        ligaPanel.add(radioSenior);
+        formPanel.add(ligaPanel, gbc);
+
+        gbc.gridx = 0;
+        gbc.gridy = 5;
+        gbc.gridwidth = 1;
+        JButton btnAdd = new JButton("Tambah");
+        formPanel.add(btnAdd, gbc);
+
+        gbc.gridx = 1;
+        JButton btnDelete = new JButton("Hapus");
+        formPanel.add(btnDelete, gbc);
+
+        gbc.gridx = 2;
+        JButton btnUpdate = new JButton("Perbarui Data");
+        formPanel.add(btnUpdate, gbc);
+
+        add(formPanel, BorderLayout.NORTH);
+
+        model = new DefaultTableModel(new String[]{"No Punggung", "Nama", "Posisi", "Umur", "Liga"}, 0);
+        table = new JTable(model);
+        add(new JScrollPane(table), BorderLayout.CENTER);
+
+        connectToDatabase();
+
+        loadData();
+
+        btnAdd.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                addPlayer();
+            }
+        });
+
+        btnDelete.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                deletePlayer();
+            }
+        });
+
+        btnUpdate.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                updatePlayer();
+            }
+        });
+    }
+
+    private void connectToDatabase() {
+        try {
+            connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/sepakbola", "root", "Nabil.170305");
+            System.out.println("Connected to database");
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Database connection failed: " + e.getMessage());
+        }
+    }
+
+    private void loadData() {
+        try {
+            model.setRowCount(0);
+            Statement stmt = connection.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT * FROM pemain");
+            while (rs.next()) {
+                model.addRow(new Object[]{rs.getInt("id"), rs.getString("nama"), rs.getString("posisi"), rs.getInt("umur"), rs.getString("liga")});
+            }
+            System.out.println("Data loaded");
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Failed to load data: " + e.getMessage());
+        }
+    }
+
+    private void addPlayer() {
+        int id = Integer.parseInt(txtId.getText());
+        String name = txtName.getText();
+        String position = (String) comboPosition.getSelectedItem();
+        int age = (Integer) spinnerAge.getValue();
+        String liga = getSelectedLiga();
+
+        try {
+            PreparedStatement pstmt = connection.prepareStatement("INSERT INTO pemain (id, nama, posisi, umur, liga) VALUES (?, ?, ?, ?, ?)");
+            pstmt.setInt(1, id);
+            pstmt.setString(2, name);
+            pstmt.setString(3, position);
+            pstmt.setInt(4, age);
+            pstmt.setString(5, liga);
+            pstmt.executeUpdate();
+            loadData();
+            txtId.setText("");
+            txtName.setText("");
+            comboPosition.setSelectedIndex(0);
+            spinnerAge.setValue(18);
+            groupLiga.clearSelection();
+            System.out.println("Pemain Ditambahkan");
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Gagal Menambah Pemain: " + e.getMessage());
+        }
+    }
+
+    private void deletePlayer() {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow != -1) {
+            int id = (int) model.getValueAt(selectedRow, 0);
+            try {
+                PreparedStatement pstmt = connection.prepareStatement("DELETE FROM pemain WHERE id = ?");
+                pstmt.setInt(1, id);
+                pstmt.executeUpdate();
+                loadData();
+                System.out.println("Pemain Dihapus");
+            } catch (SQLException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Gagal Menghapus Pemain: " + e.getMessage());
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Pilih Pemain yang Dihapus.");
+        }
+    }
+
+    private void updatePlayer() {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow != -1) {
+            int id = Integer.parseInt(txtId.getText());
+            String name = txtName.getText();
+            String position = (String) comboPosition.getSelectedItem();
+            int age = (Integer) spinnerAge.getValue();
+            String liga = getSelectedLiga();
+
+            try {
+                PreparedStatement pstmt = connection.prepareStatement("UPDATE pemain SET nama = ?, posisi = ?, umur = ?, liga = ? WHERE id = ?");
+                pstmt.setString(1, name);
+                pstmt.setString(2, position);
+                pstmt.setInt(3, age);
+                pstmt.setString(4, liga);
+                pstmt.setInt(5, id);
+                pstmt.executeUpdate();
+                loadData();
+                txtId.setText("");
+                txtName.setText("");
+                comboPosition.setSelectedIndex(0);
+                spinnerAge.setValue(18);
+                groupLiga.clearSelection();
+                System.out.println("Pemain Diperbarui");
+            } catch (SQLException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Gagal Memperbarui Player: " + e.getMessage());
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Pilih Player yang Diperbarui.");
+        }
+    }
+
+    private String getSelectedLiga() {
+        if (radioJunior.isSelected()) {
+            return "Junior";
+        } else if (radioMenengah.isSelected()) {
+            return "Menengah";
+        } else if (radioSenior.isSelected()) {
+            return "Senior";
+        }
+        return null;
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+                new PlayerManagement().setVisible(true);
+            }
+        });
+    }
+}
+
